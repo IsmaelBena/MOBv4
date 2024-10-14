@@ -222,7 +222,10 @@ class MC_Server_Controller:
             # Send the "stop" command to the server process
             self.server_process.stdin.write("stop\n")
             self.server_process.stdin.flush()
-            self.server_process.wait()
+            await asyncio.sleep(2)
+            while self.search_log(self.last_log_file, "All dimensions are saved") == None:
+                await asyncio.sleep(2)
+            # self.server_process.wait()
             stop_message_text = f"```\n\
         ╔                           ╗\n\
 █═╦═════╣  Server is Shutting down  ║\n\
@@ -322,7 +325,11 @@ class MC_Server_Controller:
         await list_logs_message.edit(content=list_logs_message_text)
   
 
-    async def get_log(self, channel, log_message, file_name):
+    async def get_log(self, channel, log_message, filename):
+        if filename.lower() == 'latest':
+            file_name = os.path.basename(self.last_log_file)
+        else:
+            file_name = filename
         log_message_text = f"```\n\
         ╔                           ╗\n\
 █═╦═════╣           Logs            ║\n\
