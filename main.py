@@ -25,7 +25,10 @@ async def on_ready():
     if os.path.isfile("restart_info.json"):
         with open("restart_info.json", "r") as file:
             restart_info = json.load(file)
-            target_msg = restart_info["target_message"]
+            target_msg_id = restart_info["target_message_id"]
+            target_msg_channel = restart_info["target_message_channel"]
+            target_channel = bot.get_channel(target_msg_channel)
+            target_msg = await target_channel.fetch_message(target_msg_id)
             time_taken = time.perf_counter() - restart_info["restart_time"]
             await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
 
@@ -143,7 +146,8 @@ async def restart_vm(ctx):
     with open("restart_info.json", "w") as file:
         info = {
             "restart_time": time.perf_counter(),
-            "target_message": restart_message
+            "target_message_id": restart_message.id,
+            "target_message_channel": restart_message.channel.id
         }
         json.dump(info, file)
     os.system("shutdown /r /t 3 /c \"MOB is restarting this VM\"")
