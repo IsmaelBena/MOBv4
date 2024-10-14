@@ -198,7 +198,7 @@ class MC_Server_Controller:
         if time_to_format < 60:           
             return f"{int(time_to_format)}s"
         else:
-            return f"{time_to_format // 60}m {int(time_to_format%60)}s"
+            return f"{int(time_to_format) // 60}m {int(time_to_format%60)}s"
 
     def update_loading_bar(self, progress):
         filled_amount = int(int(progress)/4)
