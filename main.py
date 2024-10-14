@@ -5,6 +5,7 @@ from discord.ext import commands
 import asyncio
 import yaml
 import os
+import json
 
 with open('config.yaml', 'r') as file:
     config = yaml.safe_load(file)
@@ -21,6 +22,12 @@ MCSC = MC_Server_Controller()
 async def on_ready():
     print('Logged on as {0}!'.format(bot.user))
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="you 👁️👄👁️"))
+    if os.path.isfile("restart_info.json"):
+        with open("restart_info.json", "r") as file:
+            restart_info = json.load(file)
+            target_msg = restart_info["target_message"]
+            time_taken = time.perf_counter() - restart_info["restart_time"]
+            await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
 
 
 @bot.command()
@@ -132,7 +139,13 @@ async def mcListLogs(channel, last_x=None):
 
 @bot.command()
 async def restart_vm(ctx):
-    await ctx.channel.send("```\nRestarting Virtual Machine...\n```")
+    restart_message = await ctx.channel.send("```\nRestarting Virtual Machine...\n```")
+    with open("restart_info.json", "w") as file:
+        info = {
+            "restart_time": time.perf_counter(),
+            "target_message": restart_message
+        }
+        json.dump(info, file)
     os.system("shutdown /r /t 3 /c \"MOB is restarting this VM\"")
 
 bot.run(BOT_TOKEN)
