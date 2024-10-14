@@ -8,6 +8,9 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 flask = "^3.0.3"
+pyyaml = "^6.0.2"
+jproperties = "^2.1.2"
+discord-py = "^2.4.0"
 
 
 [build-system]
