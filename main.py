@@ -115,7 +115,7 @@ async def mcStatus(channel):
         case ServerState.OFF:
             status_message += f"  ╚══│ The server is currently off.\n```"
         case ServerState.STARTING:
-            status_message += f"  ╚══│ The server is already starting up, is [!mc start] to see the progress.\n```"
+            status_message += f"  ╚══│ The server is starting up, is [!mc start] to see the progress.\n```"
         case ServerState.STOPPING:
             status_message += f"  ╚══│ The server is shutting down.\n```"
             

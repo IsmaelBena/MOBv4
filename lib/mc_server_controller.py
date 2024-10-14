@@ -109,7 +109,7 @@ class MC_Server_Controller:
             print(f" │ MCSC.start │ Created logger with timestap: {formatted_timestamp}")
             # Creating server process
             self.server_process = subprocess.Popen(
-                f"{self.server_dir}/run.bat",
+                f"{os.path.join(self.server_dir, self.start_script)}",
                 cwd=self.server_dir,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -117,7 +117,6 @@ class MC_Server_Controller:
                 universal_newlines=True,
                 bufsize=1
             )
-            print(">")
             log_thread = threading.Thread(target=self.read_stdout, args=(self.server_process,), daemon=True)
             log_thread.start()
             while self.server_process is not None:
@@ -152,7 +151,7 @@ class MC_Server_Controller:
     async def synced_starting_msg(self, starting_message):
         await starting_message.edit(content=self.booting_progress_msg)
         while not (self.server_state == ServerState.ON):
-            time.sleep(1)
+            await asyncio.sleep(1)
             await starting_message.edit(content=self.booting_progress_msg)
         await starting_message.edit(content=self.booting_progress_msg)
     
@@ -205,7 +204,7 @@ class MC_Server_Controller:
         filled_ascii = '█'
         unfilled_amount = int(100/4) - filled_amount
         unfilled_ascii = '░'
-        print(f" │ MCSC.update_loading_bar │ Filled - Unfilled: {filled_amount} - {unfilled_amount}")
+        # print(f" │ MCSC.update_loading_bar │ Filled - Unfilled: {filled_amount} - {unfilled_amount}")
         return f"{filled_ascii * filled_amount}{unfilled_ascii * unfilled_amount}"
 
     async def stop(self, stop_message):
@@ -254,7 +253,7 @@ class MC_Server_Controller:
             self.server_process.stdin.write("list\n")
             self.server_process.stdin.flush()
             print("sent list")
-            time.sleep(0.25)
+            await asyncio.sleep(0.25)
             players_online = self.search_log(self.last_log_file, "players online").split(":")[-1]
             print("online players:", len(players_online))
             if len(players_online) == 0:
