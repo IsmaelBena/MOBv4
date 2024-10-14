@@ -4,3 +4,5 @@ __pycache__/
 server_logs/
 
 config.yaml
+
+restart_info.json
