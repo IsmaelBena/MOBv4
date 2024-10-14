@@ -25,12 +25,22 @@ async def on_ready():
     if os.path.isfile("restart_info.json"):
         with open("restart_info.json", "r") as file:
             restart_info = json.load(file)
-            target_msg_id = restart_info["target_message_id"]
-            target_msg_channel = restart_info["target_message_channel"]
-            target_channel = bot.get_channel(target_msg_channel)
-            target_msg = await target_channel.fetch_message(target_msg_id)
-            time_taken = time.perf_counter() - restart_info["restart_time"]
-            await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
+            if restart_info["dms"]:
+                target_msg_id = restart_info["target_message_id"]
+                target_msg_user_id = restart_info["user_id"]
+                target_user = await bot.fetch_user(target_msg_user_id)
+                target_channel = await target_user.create_dm()
+                target_msg = await target_channel.fetch_message(target_msg_id)
+                time_taken = time.perf_counter() - restart_info["restart_time"]
+                await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
+            else:                
+                target_msg_id = restart_info["target_message_id"]
+                target_msg_channel = restart_info["target_message_channel"]
+                target_channel = await bot.get_channel(target_msg_channel)
+                target_msg = await target_channel.fetch_message(target_msg_id)
+                time_taken = time.perf_counter() - restart_info["restart_time"]
+                await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
+        os.remove("restart_info.json")
 
 
 @bot.command()
@@ -144,11 +154,20 @@ async def mcListLogs(channel, last_x=None):
 async def restart_vm(ctx):
     restart_message = await ctx.channel.send("```\nRestarting Virtual Machine...\n```")
     with open("restart_info.json", "w") as file:
-        info = {
-            "restart_time": time.perf_counter(),
-            "target_message_id": restart_message.id,
-            "target_message_channel": restart_message.channel.id
-        }
+        if ctx.guild is None:
+            info = {
+                "dms": True,
+                "restart_time": time.perf_counter(),
+                "target_message_id": restart_message.id,
+                "user_id": ctx.author.id
+            }
+        else:
+            info = {
+                "dms": False,
+                "restart_time": time.perf_counter(),
+                "target_message_id": restart_message.id,
+                "target_message_channel": restart_message.channel.id
+            }
         json.dump(info, file)
     os.system("shutdown /r /t 3 /c \"MOB is restarting this VM\"")
 
