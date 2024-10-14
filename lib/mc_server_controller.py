@@ -27,7 +27,7 @@ class MC_Server_Controller:
             config = yaml.safe_load(file)
         
         self.server_dir = config["minecraft_configs"]["server_directory"]
-        self.jar_name = config["minecraft_configs"]["server_jar"]
+        self.start_script = config["minecraft_configs"]["start_script"]
         self.server_mob_info_path = os.path.join(self.server_dir, "mob_server_info.json")
         
         
@@ -49,6 +49,8 @@ class MC_Server_Controller:
         else:
             self.average_boot_time = sum(self.server_mob_info["boot_times"]) / float(len(self.server_mob_info["boot_times"]))
         
+        self.read_server_properties()
+        
         if config["minecraft_configs"]["auto_detect_ip"]:
             self.server_access_point = f"{urllib.request.urlopen('https://v4.ident.me').read().decode('utf8')}:{self.server_port}"
         else:
@@ -56,8 +58,6 @@ class MC_Server_Controller:
         
         self.server_min_ram = config["minecraft_configs"]["server_min_ram"]
         self.server_max_ram = config["minecraft_configs"]["server_max_ram"]
-        
-        self.read_server_properties()
         
         self.server_process = None
         self.log_dir = os.path.join(os.getcwd(), config["minecraft_configs"]["logs_directory"])
@@ -74,7 +74,7 @@ class MC_Server_Controller:
         
     def read_server_properties(self):
         server_properties = Properties()
-        with open(f'server.properties', 'rb') as server_properties_file:
+        with open(os.path.join(self.server_dir, 'server.properties'), 'rb') as server_properties_file:
             server_properties.load(server_properties_file)
         
         # User displayed details
@@ -112,7 +112,7 @@ class MC_Server_Controller:
             print(f" │ MCSC.start │ Created logger with timestap: {formatted_timestamp}")
             # Creating server process
             self.server_process = subprocess.Popen(
-                ["java", f"-Xmx{self.server_max_ram}", f"-Xms{self.server_min_ram}", "-jar", self.jar_name, "nogui"],
+                f"{self.server_dir}/run.bat",
                 cwd=self.server_dir,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -120,6 +120,7 @@ class MC_Server_Controller:
                 universal_newlines=True,
                 bufsize=1
             )
+            print(">")
             log_thread = threading.Thread(target=self.read_stdout, args=(self.server_process,), daemon=True)
             log_thread.start()
             while self.server_process is not None:

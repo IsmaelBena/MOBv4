@@ -89,11 +89,11 @@ async def mcStop(channel):
             await MCSC.stop(stop_message)
             await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="you 👁️👄👁️"))
         case ServerState.STARTING:
-            channel.send("```\nWait until the server is on to turn it shut it down.\n```")
+            await channel.send("```\nWait until the server is on to turn it shut it down.\n```")
         case ServerState.OFF:
-            channel.send("```\nThe server is already off.\n```")
+            await channel.send("```\nThe server is already off.\n```")
         case ServerState.STOPPING:
-            channel.send("```\nThe server is already shutting down.\n```")
+            await channel.send("```\nThe server is already shutting down.\n```")
 
 async def mcStatus(channel):
     status_message = f"```\n\
