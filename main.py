@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 import asyncio
 import yaml
+import os
 
 with open('config.yaml', 'r') as file:
     config = yaml.safe_load(file)
@@ -127,5 +128,11 @@ async def mcGetLog(channel, file_name):
 async def mcListLogs(channel, last_x=None):
     list_message = await channel.send("```\nRequesting file names from the server controller...\n```")
     await MCSC.list_logs(list_message, last_x)
+
+
+@bot.command()
+async def restart_vm(ctx):
+    await ctx.channel.send("```\nRestarting Virtual Machine...\n```")
+    os.system("shutdown /r /t 3 /c \"MOB is restarting this VM\"")
 
 bot.run(BOT_TOKEN)

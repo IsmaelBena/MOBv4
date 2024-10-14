@@ -69,9 +69,6 @@ class MC_Server_Controller:
         self.booting_progress_msg = None
         self.last_log_file = None
         
-        
-        print(f'Intitialised with:\n - dir: {self.server_dir}\\{self.jar_name}\n - port: {self.server_port}')
-        
     def read_server_properties(self):
         server_properties = Properties()
         with open(os.path.join(self.server_dir, 'server.properties'), 'rb') as server_properties_file:
@@ -264,7 +261,10 @@ class MC_Server_Controller:
                 return 0, None
             else:
                 num_online = players_online.split(", ")
-                return len(num_online), players_online
+                players_online_str = ""
+                for player in num_online:
+                    players_online_str += f" {player}"
+                return len(num_online), players_online_str
 
     def search_log(self, file_path, condition, chunk_size=1024):
         print("looking for", condition)
