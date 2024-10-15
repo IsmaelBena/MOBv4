@@ -6,6 +6,7 @@ import asyncio
 import yaml
 import os
 import json
+from timeit import default_timer as timer
 
 with open('config.yaml', 'r') as file:
     config = yaml.safe_load(file)
@@ -31,14 +32,14 @@ async def on_ready():
                 target_user = await bot.fetch_user(target_msg_user_id)
                 target_channel = await target_user.create_dm()
                 target_msg = await target_channel.fetch_message(target_msg_id)
-                time_taken = time.perf_counter() - restart_info["restart_time"]
+                time_taken = timer() - restart_info["restart_time"]
                 await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
             else:                
                 target_msg_id = restart_info["target_message_id"]
                 target_msg_channel = restart_info["target_message_channel"]
-                target_channel = await bot.get_channel(target_msg_channel)
+                target_channel = bot.get_channel(target_msg_channel)
                 target_msg = await target_channel.fetch_message(target_msg_id)
-                time_taken = time.perf_counter() - restart_info["restart_time"]
+                time_taken = timer() - restart_info["restart_time"]
                 await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
         os.remove("restart_info.json")
 
@@ -96,12 +97,12 @@ async def mcStart(channel):
             await MCSC.start(boot_message)
             await bot.change_presence(activity=discord.Game(name="Minecraft Server Management"))        
         case ServerState.ON:
-            await channel.send("```\nServer is already online at: 0.0.0.0\n```")
+            await channel.send(f"```\nServer is already online at: {MCSC.server_access_point}\n```")
         case ServerState.STARTING:
             synnced_message = await channel.send("```\nSever is already starting up, syncing progress...\n```")
             await MCSC.synced_starting_msg(synnced_message)
         case ServerState.STOPPING:
-            await channel.send(f"```\nServer is already shutting down, wait for it completely shut off before starting again.\n```")
+            await channel.send(f"```\nServer is already shutting down, wait for it to completely shut off before starting again.\n```")
     
 async def mcStop(channel):
     match MCSC.server_state:
@@ -131,7 +132,7 @@ async def mcStatus(channel):
             else:
                 status_message += f"  ╠══│ Server is online.\n"
                 status_message += f"  ╠══│ Number of players online: {status_info[0]}\n"
-                status_message += f"  ╚══│ Number of players online: {status_info[1]}\n```"
+                status_message += f"  ╚══│ Player Online: {status_info[1]}\n```"
         case ServerState.OFF:
             status_message += f"  ╚══│ The server is currently off.\n```"
         case ServerState.STARTING:
@@ -157,14 +158,14 @@ async def restart_vm(ctx):
         if ctx.guild is None:
             info = {
                 "dms": True,
-                "restart_time": time.perf_counter(),
+                "restart_time": timer(),
                 "target_message_id": restart_message.id,
                 "user_id": ctx.author.id
             }
         else:
             info = {
                 "dms": False,
-                "restart_time": time.perf_counter(),
+                "restart_time": timer(),
                 "target_message_id": restart_message.id,
                 "target_message_channel": restart_message.channel.id
             }

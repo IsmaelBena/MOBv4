@@ -12,13 +12,26 @@ from timeit import default_timer as timer
 import asyncio
 import discord
 import urllib.request
+from collections import deque
 
+#################################################################################
+#                                                                               #
+#                           Server State Enum Class                             #
+#                                                                               #
+#################################################################################
 
 class ServerState(Enum):
     ON = 1
     OFF = 2
     STARTING = 3
     STOPPING = 4
+
+
+#################################################################################
+#                                                                               #
+#                    Minecraft Server Controller Class                          #
+#                                                                               #
+#################################################################################
 
 class MC_Server_Controller:
     def __init__(self):
@@ -30,6 +43,7 @@ class MC_Server_Controller:
         self.start_script = config["minecraft_configs"]["start_script"]
         self.server_mob_info_path = os.path.join(self.server_dir, "mob_server_info.json")
         
+        self.default_channel = config["bot_configs"]["default_channel"]
         
         if os.path.isfile(self.server_mob_info_path):
             with open(self.server_mob_info_path, 'r') as file:
@@ -56,18 +70,21 @@ class MC_Server_Controller:
         else:
             self.server_access_point =config["minecraft_configs"]["custom_access_point"]
         
-        self.server_min_ram = config["minecraft_configs"]["server_min_ram"]
-        self.server_max_ram = config["minecraft_configs"]["server_max_ram"]
-        
         self.server_process = None
         self.log_dir = os.path.join(os.getcwd(), config["minecraft_configs"]["logs_directory"])
         
         self.online_indicator = config["minecraft_configs"]["online_indicator"]
+        self.shutdown_indicator = config["minecraft_configs"]["shutdown_indicator"]
         
         self.server_state = ServerState.OFF
         self.booting_progress = None
         self.booting_progress_msg = None
         self.last_log_file = None
+        self.last_30_log = deque([], maxlen=30)
+        
+    #####################################################################################
+    #                  Read Properties from server.properties file                      #
+    #####################################################################################
         
     def read_server_properties(self):
         server_properties = Properties()
@@ -80,6 +97,9 @@ class MC_Server_Controller:
         self.hardcore = server_properties.get("hardcore").data
         self.gamemode = server_properties.get("gamemode").data
 
+    #####################################################################################
+    #                               Start the server                                    #
+    #####################################################################################
 
     async def start(self, boot_message):     
         # Check if the server is on
@@ -140,13 +160,24 @@ class MC_Server_Controller:
             self.server_state = ServerState.OFF
             print(e)
     
+    #####################################################################################
+    #                        Monitor and Log Server Output                              #
+    #####################################################################################
+    
     def read_stdout(self, server_process):
         with server_process.stdout:
             for line in iter(server_process.stdout.readline, ''):
                 logging.info(line.strip())
+                self.last_30_log.appendleft(line)
                 if self.online_indicator in line:
                     print(" │ MCSC.read_stdout │ Server is ready!")
-                    self.server_state = ServerState.ON  
+                    self.server_state = ServerState.ON
+                if self.shutdown_indicator in line:
+                    print(" │ MCSC.read_stdout │ Server Shutdown Detected.")
+                
+    #####################################################################################
+    #                      Manage the "booting" message                                 #
+    #####################################################################################
                              
     async def synced_starting_msg(self, starting_message):
         await starting_message.edit(content=self.booting_progress_msg)
@@ -207,58 +238,76 @@ class MC_Server_Controller:
         # print(f" │ MCSC.update_loading_bar │ Filled - Unfilled: {filled_amount} - {unfilled_amount}")
         return f"{filled_ascii * filled_amount}{unfilled_ascii * unfilled_amount}"
 
+
+    #####################################################################################
+    #                               Stop the server                                     #
+    #####################################################################################
+
+
     async def stop(self, stop_message):
         if self.server_process is None:
             print(" │ MCSC.stop │ Server is not on")
             await stop_message.edit(content="Attempting to stop the server when there is no server process running, if you seee this let the dev know :)")
-        try:
-            self.server_state = ServerState.STOPPING
-            stop_message_text = f"```\n\
+        match self.server_state:
+            case ServerState.ON:
+                try:
+                    self.server_state = ServerState.STOPPING
+                    stop_message_text = f"```\n\
         ╔                           ╗\n\
 █═╦═════╣  Server is Shutting down  ║\n\
   ║     ╚                           ╝\n\
   ╚══│ Stopping server\n```"
-            await stop_message.edit(content=stop_message_text)
-            # Send the "stop" command to the server process
-            self.server_process.stdin.write("stop\n")
-            self.server_process.stdin.flush()
-            await asyncio.sleep(2)
-            while self.search_log(self.last_log_file, "All dimensions are saved") == None:
-                await asyncio.sleep(2)
-            # self.server_process.wait()
-            stop_message_text = f"```\n\
+                    await stop_message.edit(content=stop_message_text)
+                    # Send the "stop" command to the server process
+                    self.server_process.stdin.write("stop\n")
+                    self.server_process.stdin.flush()
+                    await asyncio.sleep(2)
+                    while self.check_recent_logs("All dimensions are saved") == None:
+                        await asyncio.sleep(2)
+                    # self.server_process.wait()
+                    stop_message_text = f"```\n\
         ╔                           ╗\n\
 █═╦═════╣  Server is Shutting down  ║\n\
   ║     ╚                           ╝\n\
   ╠══│ Stopping server\n\
   ╚══│ Ending Process\n```"
-            await stop_message.edit(content=stop_message_text)
-            self.server_process = None
-            self.server_state = ServerState.OFF
-            stop_message_text = f"```\n\
+                    await stop_message.edit(content=stop_message_text)
+                    self.server_process = None
+                    self.server_state = ServerState.OFF
+                    stop_message_text = f"```\n\
         ╔                           ╗\n\
 █═╦═════╣  Server is Shutting down  ║\n\
   ║     ╚                           ╝\n\
   ╠══│ Stopping server\n\
   ╠══│ Ending Process\n\
   ╚══│ Server is off. You can find this session's logs at: {os.path.basename(self.last_log_file)}\n```"
-            await stop_message.edit(content=stop_message_text)
-            print(" │ MCSC.stop │ Server turned off")
-        except Exception as e:
-            print(e)
+                    await stop_message.edit(content=stop_message_text)
+                    print(" │ MCSC.stop │ Server turned off")
+                except Exception as e:
+                    print(e)
+            case ServerState.STOPPING:
+                stop_message_text = f"```\n\
+        ╔                           ╗\n\
+█═╦═════╣  Server is Shutting down  ║\n\
+  ║     ╚                           ╝\n\
+  ╚══│ Stopping server\n```"
      
+     
+    #####################################################################################
+    #                           Check Connected Players                                 #
+    #####################################################################################
                  
     async def connected_players(self):
         if self.server_process is None:
-            print("process is none")
-            return "None"
+            print(" │ MCSC.connected_players │ Process is None.")
+            return None
         else:
             self.server_process.stdin.write("list\n")
             self.server_process.stdin.flush()
-            print("sent list")
+            print(" │ MCSC.connected_players │ Entered list command.")
             await asyncio.sleep(0.25)
-            players_online = self.search_log(self.last_log_file, "players online").split(":")[-1]
-            print("online players:", len(players_online))
+            players_online = self.check_recent_logs("players online").split(":")[-1]
+            print(f" │ MCSC.connected_players │ Found {len(players_online)} players online.")
             if len(players_online) == 0:
                 return 0, None
             else:
@@ -268,34 +317,42 @@ class MC_Server_Controller:
                     players_online_str += f" {player}"
                 return len(num_online), players_online_str
 
-    def search_log(self, file_path, condition, chunk_size=1024):
-        print("looking for", condition)
-        with open(file_path, 'rb') as file:
-            file.seek(0, os.SEEK_END)
-            file_size = file.tell()
-            buffer = b''
-            position = file_size
-
-            while position > 0:
-                move_by = min(position, chunk_size)
-                position -= move_by
-                file.seek(position)
-
-                chunk = file.read(move_by)
-                buffer = chunk + buffer
-
-                lines = buffer.split(b'\n')
-
-                buffer = lines.pop(0)
-
-                for line in reversed(lines):
-                    if condition.encode() in line:
-                        return line.decode().strip()
-            
-            if buffer and condition.encode() in buffer:
-                return buffer.decode().strip()
-
+    async def check_recent_logs(self, search_value):
+        print(f" │ MCSC.recent_logs │ Searching for {search_value}")
+        for line in self.last_30_log:
+            if search_value in line:
+                print(f" │ MCSC.recent_logs │ Found {search_value} in the following line:\n\ │ MCSC.recent_logs │ - {line}")
+                return line
         return None
+
+    # def search_log(self, file_path, condition, chunk_size=1024):
+    #     print("looking for", condition)
+    #     with open(file_path, 'rb') as file:
+    #         file.seek(0, os.SEEK_END)
+    #         file_size = file.tell()
+    #         buffer = b''
+    #         position = file_size
+
+    #         while position > 0:
+    #             move_by = min(position, chunk_size)
+    #             position -= move_by
+    #             file.seek(position)
+
+    #             chunk = file.read(move_by)
+    #             buffer = chunk + buffer
+
+    #             lines = buffer.split(b'\n')
+
+    #             buffer = lines.pop(0)
+
+    #             for line in reversed(lines):
+    #                 if condition.encode() in line:
+    #                     return line.decode().strip()
+            
+    #         if buffer and condition.encode() in buffer:
+    #             return buffer.decode().strip()
+
+    #     return None
 
                     
     def op(self):
