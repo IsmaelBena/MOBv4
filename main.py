@@ -17,7 +17,7 @@ BOT_PREFIX = config["bot_configs"]["bot_prefix"]
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
 
-MCSC = MC_Server_Controller()
+MCSC = MC_Server_Controller(bot)
 
 @bot.event
 async def on_ready():
@@ -33,14 +33,16 @@ async def on_ready():
                 target_channel = await target_user.create_dm()
                 target_msg = await target_channel.fetch_message(target_msg_id)
                 time_taken = timer() - restart_info["restart_time"]
-                await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
+                print(time_taken)
+                await target_msg.edit(content=f"```\nVM restarted\n```")
             else:                
                 target_msg_id = restart_info["target_message_id"]
                 target_msg_channel = restart_info["target_message_channel"]
                 target_channel = bot.get_channel(target_msg_channel)
                 target_msg = await target_channel.fetch_message(target_msg_id)
                 time_taken = timer() - restart_info["restart_time"]
-                await target_msg.edit(content=f"```\nVM restarted in {int(time_taken)}s\n```")
+                print(time_taken)
+                await target_msg.edit(content=f"```\nVM restarted\n```")
         os.remove("restart_info.json")
 
 

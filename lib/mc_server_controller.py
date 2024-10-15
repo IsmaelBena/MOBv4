@@ -35,7 +35,7 @@ class ServerState(Enum):
 #################################################################################
 
 class MC_Server_Controller:
-    def __init__(self):
+    def __init__(self, bot):
         print("Initialising Minecraft Server Controller")
         with open('config.yaml', 'r') as file:
             config = yaml.safe_load(file)
@@ -45,6 +45,7 @@ class MC_Server_Controller:
         self.server_mob_info_path = os.path.join(self.server_dir, "mob_server_info.json")
         
         self.default_channel = config["bot_configs"]["default_channel"]
+        self.bot = bot
         
         if os.path.isfile(self.server_mob_info_path):
             with open(self.server_mob_info_path, 'r') as file:
@@ -177,7 +178,8 @@ class MC_Server_Controller:
                 if self.shutdown_indicator in line:
                     print(" │ MCSC.read_stdout │ Server Shutdown Detected.")
                     if self.server_state == ServerState.ON:
-                        self.ingame_shutdown()
+                        loop = asyncio.get_event_loop()
+                        loop.create_task(self.ingame_shutdown())                        
                 
     #####################################################################################
     #                      Manage the "booting" message                                 #
@@ -242,7 +244,6 @@ class MC_Server_Controller:
         # print(f" │ MCSC.update_loading_bar │ Filled - Unfilled: {filled_amount} - {unfilled_amount}")
         return f"{filled_ascii * filled_amount}{unfilled_ascii * unfilled_amount}"
 
-
     #####################################################################################
     #                               Stop the server                                     #
     #####################################################################################
@@ -288,10 +289,11 @@ class MC_Server_Controller:
         except Exception as e:
             print(e)
 
-    def ingame_shutdown(self):
+    async def ingame_shutdown(self):
         self.server_state = ServerState.STOPPING
         self.server_process = None
         self.server_state = ServerState.OFF
+        await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="you 👁️👄👁️"))
         print(" │ MCSC.ingame_shutdown │ Server turned off.")
           
     #####################################################################################
