@@ -13,6 +13,7 @@ import asyncio
 import discord
 import urllib.request
 from collections import deque
+import itertools
 
 #################################################################################
 #                                                                               #
@@ -80,7 +81,7 @@ class MC_Server_Controller:
         self.booting_progress = None
         self.booting_progress_msg = None
         self.last_log_file = None
-        self.last_30_log = deque([], maxlen=30)
+
         
     #####################################################################################
     #                  Read Properties from server.properties file                      #
@@ -109,6 +110,7 @@ class MC_Server_Controller:
             return
         try:
             self.server_state = ServerState.STARTING
+            self.last_30_log = deque([], maxlen=30)
             start_time = timer()
             current_datetime = datetime.now()
             formatted_timestamp = current_datetime.strftime("%d-%m-%Y_%H-%M-%S")
@@ -174,6 +176,8 @@ class MC_Server_Controller:
                     self.server_state = ServerState.ON
                 if self.shutdown_indicator in line:
                     print(" │ MCSC.read_stdout │ Server Shutdown Detected.")
+                    if self.server_state == ServerState.ON:
+                        self.ingame_shutdown()
                 
     #####################################################################################
     #                      Manage the "booting" message                                 #
@@ -248,51 +252,48 @@ class MC_Server_Controller:
         if self.server_process is None:
             print(" │ MCSC.stop │ Server is not on")
             await stop_message.edit(content="Attempting to stop the server when there is no server process running, if you seee this let the dev know :)")
-        match self.server_state:
-            case ServerState.ON:
-                try:
-                    self.server_state = ServerState.STOPPING
-                    stop_message_text = f"```\n\
+        try:
+            self.server_state = ServerState.STOPPING
+            stop_message_text = f"```\n\
         ╔                           ╗\n\
 █═╦═════╣  Server is Shutting down  ║\n\
   ║     ╚                           ╝\n\
   ╚══│ Stopping server\n```"
-                    await stop_message.edit(content=stop_message_text)
-                    # Send the "stop" command to the server process
-                    self.server_process.stdin.write("stop\n")
-                    self.server_process.stdin.flush()
-                    await asyncio.sleep(2)
-                    while self.check_recent_logs("All dimensions are saved") == None:
-                        await asyncio.sleep(2)
-                    # self.server_process.wait()
-                    stop_message_text = f"```\n\
+            await stop_message.edit(content=stop_message_text)
+            # Send the "stop" command to the server process
+            self.server_process.stdin.write("stop\n")
+            self.server_process.stdin.flush()
+            await asyncio.sleep(2)
+            while await self.check_recent_logs("All dimensions are saved") == None:
+                await asyncio.sleep(2)
+            # self.server_process.wait()
+            stop_message_text = f"```\n\
         ╔                           ╗\n\
 █═╦═════╣  Server is Shutting down  ║\n\
   ║     ╚                           ╝\n\
   ╠══│ Stopping server\n\
   ╚══│ Ending Process\n```"
-                    await stop_message.edit(content=stop_message_text)
-                    self.server_process = None
-                    self.server_state = ServerState.OFF
-                    stop_message_text = f"```\n\
+            await stop_message.edit(content=stop_message_text)
+            self.server_process = None
+            self.server_state = ServerState.OFF
+            stop_message_text = f"```\n\
         ╔                           ╗\n\
 █═╦═════╣  Server is Shutting down  ║\n\
   ║     ╚                           ╝\n\
   ╠══│ Stopping server\n\
   ╠══│ Ending Process\n\
   ╚══│ Server is off. You can find this session's logs at: {os.path.basename(self.last_log_file)}\n```"
-                    await stop_message.edit(content=stop_message_text)
-                    print(" │ MCSC.stop │ Server turned off")
-                except Exception as e:
-                    print(e)
-            case ServerState.STOPPING:
-                stop_message_text = f"```\n\
-        ╔                           ╗\n\
-█═╦═════╣  Server is Shutting down  ║\n\
-  ║     ╚                           ╝\n\
-  ╚══│ Stopping server\n```"
-     
-     
+            await stop_message.edit(content=stop_message_text)
+            print(" │ MCSC.stop │ Server turned off")
+        except Exception as e:
+            print(e)
+
+    def ingame_shutdown(self):
+        self.server_state = ServerState.STOPPING
+        self.server_process = None
+        self.server_state = ServerState.OFF
+        print(" │ MCSC.ingame_shutdown │ Server turned off.")
+          
     #####################################################################################
     #                           Check Connected Players                                 #
     #####################################################################################
@@ -306,7 +307,7 @@ class MC_Server_Controller:
             self.server_process.stdin.flush()
             print(" │ MCSC.connected_players │ Entered list command.")
             await asyncio.sleep(0.25)
-            players_online = self.check_recent_logs("players online").split(":")[-1]
+            players_online = await self.check_recent_logs("players online").split(":")[-1]
             print(f" │ MCSC.connected_players │ Found {len(players_online)} players online.")
             if len(players_online) == 0:
                 return 0, None
@@ -321,7 +322,7 @@ class MC_Server_Controller:
         print(f" │ MCSC.recent_logs │ Searching for {search_value}")
         for line in self.last_30_log:
             if search_value in line:
-                print(f" │ MCSC.recent_logs │ Found {search_value} in the following line:\n\ │ MCSC.recent_logs │ - {line}")
+                print(f" │ MCSC.recent_logs │ Found {search_value} in the following line:\n │ MCSC.recent_logs │ - {line}")
                 return line
         return None
 
@@ -353,7 +354,6 @@ class MC_Server_Controller:
     #             return buffer.decode().strip()
 
     #     return None
-
                     
     def op(self):
         return
@@ -379,8 +379,7 @@ class MC_Server_Controller:
                 list_logs_message_text += f"  ╠══│ {name}\n"
             else:
                 list_logs_message_text += f"  ╚══│ {name}\n```"
-        await list_logs_message.edit(content=list_logs_message_text)
-  
+        await list_logs_message.edit(content=list_logs_message_text)  
 
     async def get_log(self, channel, log_message, filename):
         if filename.lower() == 'latest':
@@ -414,3 +413,29 @@ class MC_Server_Controller:
   ╠══│ If you want the most recent logs, the filename is {self.last_log_file}\n\
   ╚══│ Or try using [!mc list_logs] to get a list of the existing files.\n```"
             await log_message.edit(content=log_message_text)
+            
+    async def get_live_log_buffer(self, buffer_message):
+        if self.last_30_log is not None:
+            buffer_msg_txt= f"```\n\
+        ╔                           ╗\n\
+█═══════╣        Log Buffer         ║\n\
+        ╚                           ╝\n"
+            for line in reversed(self.last_30_log):
+                buffer_msg_txt += f" │ {line}"
+            buffer_msg_txt += "```"
+            line_index = 1
+            
+            while len(buffer_msg_txt) > 2000:
+                print(line_index)
+                print(len(buffer_msg_txt))
+                buffer_msg_txt= f"```\n\
+        ╔                           ╗\n\
+█═══════╣        Log Buffer         ║\n\
+        ╚                           ╝\n"
+                for line in itertools.islice(reversed(self.last_30_log), line_index, None):
+                    buffer_msg_txt += f" │ {line}"
+                buffer_msg_txt += "```"
+                line_index += 1
+            await buffer_message.edit(content=buffer_msg_txt)
+        else:
+            await buffer_message.edit(content="```\nThere are no active logs to retrieve.\n```")

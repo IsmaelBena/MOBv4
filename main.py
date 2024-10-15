@@ -69,21 +69,26 @@ async def mc(ctx, *args):
     if len(args) < 1:
         await ctx.channel.send("```\nNo args given\n```")
     else:
-        if (args[0].lower() == "start"):
-            await mcStart(ctx.channel)
-        elif (args[0].lower() == "stop"):
-            await mcStop(ctx.channel)
-        elif (args[0].lower() == "get_log"):
-            await mcGetLog(ctx.channel, args[1])
-        elif (args[0].lower() == "status"):
-            await mcStatus(ctx.channel)
-        elif (args[0].lower() == "list_logs"):
-            if len(args) == 1:
-                await mcListLogs(ctx.channel, None)
-            else:
-                await mcListLogs(ctx.channel, args[1])
-        else:
-            print(f"Invalid Minecraft arguments: {args}")
+        match args[0].lower():
+            case "start":
+                await mcStart(ctx.channel)
+            case "stop":
+                await mcStop(ctx.channel)
+            case "get_log":
+                await mcGetLog(ctx.channel, args[1])
+            case "status":
+                await mcStatus(ctx.channel)
+            case "list_logs":
+                if len(args) == 1:
+                    await mcListLogs(ctx.channel, None)
+                else:
+                    await mcListLogs(ctx.channel, args[1])
+            case "recent_logs":
+                await mcLiveLogBuffer(ctx.channel)
+            case "status":
+                await mcStatus(ctx.channel)
+            case _:
+                print(f"Invalid Minecraft arguments: {args}")
         # elif (args[0].lower() == "info"):
         #     await mcInfo(ctx.channel)
         # elif (args[0].lower() == "op"):
@@ -150,6 +155,9 @@ async def mcListLogs(channel, last_x=None):
     list_message = await channel.send("```\nRequesting file names from the server controller...\n```")
     await MCSC.list_logs(list_message, last_x)
 
+async def mcLiveLogBuffer(channel):
+    buffer_msg = await channel.send("```\nRequesting logs from the server controller...\n```")
+    await MCSC.get_live_log_buffer(buffer_msg)
 
 @bot.command()
 async def restart_vm(ctx):
