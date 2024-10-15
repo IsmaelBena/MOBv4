@@ -179,7 +179,10 @@ class MC_Server_Controller:
                     print(" │ MCSC.read_stdout │ Server Shutdown Detected.")
                     if self.server_state == ServerState.ON:
                         loop = asyncio.get_event_loop()
-                        loop.create_task(self.ingame_shutdown())                        
+                        if loop.is_running():
+                            loop.create_task(self.ingame_shutdown())
+                        else:
+                            asyncio.run(self.ingame_shutdown())
                 
     #####################################################################################
     #                      Manage the "booting" message                                 #
