@@ -1,4 +1,4 @@
-from lib import MC_Server_Controller, ServerState, test_connection
+from lib import MC_Server_Controller, ServerState, test_connection, roll_dice, TeamsManager
 import time
 import discord
 from discord.ext import commands
@@ -18,6 +18,7 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
 
 MCSC = MC_Server_Controller(bot)
+TeamsManager = TeamsManager()
 
 @bot.event
 async def on_ready():
@@ -65,6 +66,33 @@ async def ping(ctx):
     await message.edit(content=ping_message)
     print(f'Ponged')
 
+
+@bot.command()
+async def roll(ctx, *args):
+    try:
+        match len(args):
+            case 0:
+                await ctx.channel.send(f"```\nYou rolled: {roll_dice()}\n```")
+            case 1:
+                if int(args[0]) >= 1:
+                    await ctx.channel.send(f"```\nYou rolled: {roll_dice(end=int(args[0]))}\n```")
+                else:
+                    await ctx.channel.send(f"```\nInvalid arguments: Number needs to be greater or equal to 1 since that's the default starting value.\n```")
+            case 2:
+                if int(args[0]) > int(args[1]):
+                    await ctx.channel.send(f"```\nYou rolled: {roll_dice(start=int(args[1]), end=int(args[0]))}\n```")
+                else:
+                    await ctx.channel.send(f"```\nYou rolled: {roll_dice(start=int(args[0]), end=int(args[1]))}\n```")
+            case _:
+                await ctx.channel.send(f"```\nInvalid arguments: You provided too many numbers.\n```")
+    except:
+        await ctx.channel.send(f"```\nInvalid arguments: You did not provide valid numbers.\n```")
+            
+@bot.command()
+async def teams(ctx, *args):
+    
+        
+    
 
 @bot.command()
 async def mc(ctx, *args):
